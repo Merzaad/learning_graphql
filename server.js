@@ -62,7 +62,7 @@ const RootQueryType = new GraphQLObjectType({
       description: "list of Numbers",
       resolve: () => numbers,
     },
-    number: {
+    getNumber: {
       type: NumbersType,
       description: "One of Numbers",
       args: {
@@ -71,7 +71,7 @@ const RootQueryType = new GraphQLObjectType({
       resolve: (parent, args) =>
         numbers.find((number) => number.id === args.id),
     },
-    string: {
+    getString: {
       type: StringsType,
       description: "One of Strings",
       args: {
@@ -82,8 +82,27 @@ const RootQueryType = new GraphQLObjectType({
     },
   }),
 });
+const RootMutationType = new GraphQLObjectType({
+  name: "Mutation",
+  description: "Root mutation",
+  fields: () => ({
+    addString: {
+      type: StringsType,
+      description: "Add string",
+      args: {
+        string: { type: GraphQLNonNull(GraphQLString) },
+      },
+      resolve: (parent, args) => {
+        const string = { id: strings.length + 1, string: args.string };
+        strings.push(string);
+        return string;
+      },
+    },
+  }),
+});
 const schema = new GraphQLSchema({
   query: RootQueryType,
+  mutation: RootMutationType,
 });
 const app = express();
 app.use(
