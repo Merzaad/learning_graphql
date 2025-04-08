@@ -8,6 +8,12 @@ import {
   GraphQLSchema,
   GraphQLString,
 } from "graphql";
+import { PubSub } from "graphql-subscriptions";
+import { useServer } from "graphql-ws/use/ws";
+import { WebSocketServer } from "ws";
+
+const pubsub = new PubSub();
+const STRING_ADDED = "STRING_ADDED";
 
 const strings = [
   { id: 1, string: "one" },
@@ -95,21 +101,41 @@ const RootMutationType = new GraphQLObjectType({
       resolve: (parent, args) => {
         const string = { id: strings.length + 1, string: args.string };
         strings.push(string);
+        pubsub.publish(STRING_ADDED, { stringAdded: string }); 
         return string;
       },
     },
   }),
 });
+const RootSubscriptionType = new GraphQLObjectType({
+  name: "Subscription",
+  fields: {
+    stringAdded: {
+      type: StringsType,
+      subscribe: () => pubsub.asyncIterableIterator(STRING_ADDED),
+    },
+  },
+});
 const schema = new GraphQLSchema({
   query: RootQueryType,
   mutation: RootMutationType,
+  subscription: RootSubscriptionType,
 });
 const app = express();
 app.use(
   "/graphql",
   graphqlHTTP({
     schema,
-    graphiql: true,
+    graphiql: {
+      subscriptionEndpoint: "ws://localhost:3001/graphql",
+    },
   })
 );
-app.listen(3001, () => console.log("server started on 3001"));
+const server = app.listen(3001, () => {
+  console.log("GraphQL server started on http://localhost:3001/graphql");
+});
+const wsServer = new WebSocketServer({
+  server,
+  path: "/graphql",
+});
+useServer({ schema }, wsServer);
